@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <errno.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/inotify.h>
@@ -7,6 +8,7 @@
 #include <unistd.h>
 #include <stdexcept>
 
+#include <memory>
 #include <unordered_map>
 
 #include "watch_inotify.h"
@@ -17,54 +19,62 @@ typedef std::unordered_map<int, std::string> DirectoryMap;
 
 namespace {
 
-void add_directory_watch(int fd, const std::string& root, DirectoryMap& directory_map)
+typedef std::unique_ptr<DIR, int (*)(DIR*)> DirHandle;
+
+// d_type is one value, not a set of bits. Filesystems that do not fill it in leave DT_UNKNOWN, and
+// a symlink is never followed, whichever way its type is learned.
+bool is_directory(const dirent* entry, const std::string& path)
+{
+    if (entry->d_type != DT_UNKNOWN) {
+        return entry->d_type == DT_DIR;
+    }
+
+    struct stat status;
+    return lstat(path.c_str(), &status) == 0 && S_ISDIR(status.st_mode);
+}
+
+bool is_gone(int error) { return error == ENOENT || error == ENOTDIR; }
+
+// Returns false if root is no longer a directory, which a changing tree makes an ordinary outcome.
+bool add_directory_watch(int fd, const std::string& root, DirectoryMap& directory_map)
 {
     int result = inotify_add_watch(fd,
         root.c_str(),
-        IN_CREATE | IN_MODIFY | IN_DELETE | IN_ATTRIB | IN_MOVED_TO | IN_MOVED_FROM);
+        IN_CREATE | IN_MODIFY | IN_DELETE | IN_ATTRIB | IN_MOVED_TO | IN_MOVED_FROM | IN_ONLYDIR
+            | IN_DONT_FOLLOW);
 
     if (result == -1) {
+        if (is_gone(errno)) {
+            return false;
+        }
         throw std::runtime_error("Could not add watch");
     }
 
+    // Stays in the map if the directory goes now: events already queued for this watch name it.
     directory_map[result] = root;
 
-    DIR* dir = opendir(root.c_str());
+    DirHandle dir(opendir(root.c_str()), closedir);
     if (!dir) {
+        if (is_gone(errno)) {
+            return false;
+        }
         throw std::runtime_error("Could not open directory");
     }
 
     dirent* entry;
-    while ((entry = readdir(dir))) {
+    while ((entry = readdir(dir.get()))) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 
         std::string path = root + "/" + entry->d_name;
 
-        if (entry->d_type & DT_DIR) {
+        if (is_directory(entry, path)) {
             add_directory_watch(fd, path, directory_map);
         }
-        else if (entry->d_type == DT_UNKNOWN) {
-            struct stat stat_result;
-            int sresult = stat(path.c_str(), &stat_result);
-
-            if (sresult != 0) {
-				struct stat lstat_result;
-				int lsresult = lstat(path.c_str(), &lstat_result);
-
-				if (lsresult !=0) {
-					throw std::logic_error("Could not stat file of unknown type");
-				}
-				// It's a dangling symlink, move on.
-            }
-
-            if (stat_result.st_mode & S_IFDIR) {
-                add_directory_watch(fd, path, directory_map);
-            }
-        }
     }
-    closedir(dir);
+
+    return true;
 }
 }
 
@@ -98,7 +108,7 @@ InotifyWatchPlugin::InotifyWatchPlugin(
 
 InotifyWatchPlugin::~InotifyWatchPlugin()
 {
-    if (m_impl->fd == -1) {
+    if (m_impl->fd != -1) {
         close(m_impl->fd);
     }
 }
@@ -108,7 +118,9 @@ void InotifyWatchPlugin::start()
     DirectoryMap directory_map;
 
     for (auto& path : m_impl->paths) {
-        add_directory_watch(m_impl->fd, path, directory_map);
+        if (!add_directory_watch(m_impl->fd, path, directory_map)) {
+            throw std::runtime_error("Could not watch " + path);
+        }
     }
 
     char buf[READ_BUF_LEN];

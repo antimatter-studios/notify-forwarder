@@ -1,4 +1,4 @@
-#pragma mark
+#pragma once
 
 #include <memory>
 

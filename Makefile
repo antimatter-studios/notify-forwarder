@@ -130,7 +130,14 @@ $(PATH_TEST_OUT): tests/paths.cc src/receive_paths.cc src/receive_paths.h
 test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT)
 	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT); do $$suite || status=1; done; python3 tests/receiver_cli.py $(OUT) || status=1; exit $$status
 
-test-inotify: build
+TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
+
+$(TREE_TEST_OUT): tests/inotify_tree.cc src/watch_inotify.cc src/watch_inotify.h src/watch.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/inotify_tree.cc $(PLATFORM_LDFLAGS) -o $@
+
+test-inotify: build $(TREE_TEST_OUT)
+	status=0; $(TREE_TEST_OUT) || status=1; python3 tests/inotify_tree.py $(OUT) || status=1; exit $$status
 	python3 tests/inotify.py $(OUT)
 	python3 tests/kernel_events.py
 
