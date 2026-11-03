@@ -61,10 +61,28 @@ And on the client side:
 
 .. code-block:: sh
 
-   $ notify-forwarder receive
+   $ notify-forwarder receive /home/user/project
 
 The "host side" here being the file system that will send events, i.e. where you run the text
 editor. The "client side" is where the auto reloading build system runs.
+
+Receiver roots
+--------------
+
+Pass the guest directories the receiver may notify as positional arguments; multiple roots and
+``-p port`` can be combined. Paths and roots are resolved before checking directory boundaries. A
+symlink resolving outside all roots, a directory, a FIFO or a device is refused. Regular files are
+opened with ``O_NONBLOCK``. On Linux, an ``O_PATH`` descriptor pins the checked inode before it is
+opened for writable close, so a path replacement cannot turn that open into a device or FIFO open.
+
+``notify-forwarder receive [-p port]`` with no roots still runs. It prints a warning and accepts
+regular files anywhere; configure roots to restrict it. This mode is not a security boundary. The
+UDP protocol does not authenticate senders, so only expose the receiver to trusted networks and
+configure the narrowest guest roots needed.
+
+The macOS fallback checks the file before and after opening it, but does not have Linux's ``O_PATH``
+pinning guarantee. A privileged macOS receiver must not be exposed to senders that can replace file
+types while it is opening them.
 
 What the receiver does to a file
 --------------------------------
