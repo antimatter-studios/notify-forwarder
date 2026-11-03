@@ -66,6 +66,18 @@ And on the client side:
 The "host side" here being the file system that will send events, i.e. where you run the text
 editor. The "client side" is where the auto reloading build system runs.
 
+When something fails
+--------------------
+
+Everything is reported on stderr. A ``sendto`` failure that concerns the network or the path is
+skipped, and a full socket buffer is retried first. The first skipped path is named, and a later
+message says how many were skipped once sending works again. A directory that vanishes during a
+scan, or that the user may not read, is named and skipped. These leave the process running.
+
+A watch path that does not resolve, an address that is not IPv4, a port that cannot be bound and an
+exhausted inotify watch limit (``fs.inotify.max_user_watches``) each end the process with a message
+and a nonzero status.
+
 What the sender forwards
 ------------------------
 

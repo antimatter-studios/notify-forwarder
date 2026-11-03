@@ -135,8 +135,14 @@ $(FLAGS_TEST_OUT): tests/fsevents_flags.cc src/watch_fsevents.cc src/watch_fseve
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/fsevents_flags.cc $(PLATFORM_LDFLAGS) -o $@
 endif
 
-test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(FLAGS_TEST_OUT)
-	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; exit $$status
+NOTIFY_TEST_OUT = $(OUT_DIR)/notify-send-tests
+
+$(NOTIFY_TEST_OUT): tests/notify_send.cc src/notify_udp.cc src/notify_udp.h src/notify.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/notify_send.cc $(PLATFORM_LDFLAGS) -o $@
+
+test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT)
+	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; python3 tests/failures.py $(OUT) || status=1; exit $$status
 	python3 tests/bind_probe.py $(OUT)
 
 TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
@@ -151,8 +157,14 @@ $(RESYNC_TEST_OUT): tests/inotify_resync.cc src/watch_inotify.cc src/watch_inoti
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread -Isrc tests/inotify_resync.cc $(PLATFORM_LDFLAGS) -o $@
 
-test-inotify: build $(TREE_TEST_OUT) $(RESYNC_TEST_OUT)
-	status=0; $(TREE_TEST_OUT) || status=1; $(RESYNC_TEST_OUT) || status=1; python3 tests/inotify_tree.py $(OUT) || status=1; python3 tests/burst.py $(OUT) || status=1; exit $$status
+FAILURES_TEST_OUT = $(OUT_DIR)/inotify-failures-tests
+
+$(FAILURES_TEST_OUT): tests/inotify_failures.cc src/watch_inotify.cc src/watch_inotify.h src/watch.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/inotify_failures.cc $(PLATFORM_LDFLAGS) -o $@
+
+test-inotify: build $(TREE_TEST_OUT) $(RESYNC_TEST_OUT) $(FAILURES_TEST_OUT)
+	status=0; $(TREE_TEST_OUT) || status=1; $(RESYNC_TEST_OUT) || status=1; $(FAILURES_TEST_OUT) || status=1; python3 tests/inotify_tree.py $(OUT) || status=1; python3 tests/burst.py $(OUT) || status=1; exit $$status
 	python3 tests/inotify.py $(OUT)
 	python3 tests/kernel_events.py
 

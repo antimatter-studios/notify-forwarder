@@ -1,6 +1,9 @@
+#include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 #include <stdio.h>
+
+#include <exception>
 
 #include "main.h"
 
@@ -13,14 +16,19 @@ int main(int argc, char** argv)
         return EX_USAGE;
     }
 
-    if (strcmp(argv[1], "watch") == 0) {
-        return main_watch(argv[0], argc - 2, argv + 2);
+    try {
+        if (strcmp(argv[1], "watch") == 0) {
+            return main_watch(argv[0], argc - 2, argv + 2);
+        }
+        else if (strcmp(argv[1], "receive") == 0) {
+            return main_receive(argv[0], argc - 2, argv + 2);
+        }
     }
-    else if (strcmp(argv[1], "receive") == 0) {
-        return main_receive(argv[0], argc - 2, argv + 2);
+    catch (const std::exception& error) {
+        fprintf(stderr, "notify-forwarder: %s\n", error.what());
+        return EXIT_FAILURE;
     }
-    else {
-        print_usage(argv[0]);
-        return EX_USAGE;
-    }
+
+    print_usage(argv[0]);
+    return EX_USAGE;
 }
