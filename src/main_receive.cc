@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "main.h"
+#include "port.h"
 #include "utils.h"
 
 #include "receive.h"
@@ -20,19 +21,25 @@ static void print_usage(char* argv0)
 {
     fprintf(stderr, "Usage: %s receive [-p port] [root ...]\n", argv0);
     fprintf(stderr, "\n");
-    fprintf(stderr, "  -p port   specifies which ports to listen to. Defaults to 29324\n");
+    fprintf(stderr, "  -p port   the UDP port to listen on, from 1 to 65535. Defaults to 29324\n");
     fprintf(stderr, "  root ...  only regular files resolving beneath these directories are acted on\n");
     fprintf(stderr, "\n");
 }
 
 int main_receive(char* argv0, int argc, char** argv)
 {
-    short port = 29324;
+    uint16_t port = 29324;
     std::vector<std::string> roots;
 
     while (argc) {
         if (argc >= 2 && strcmp(argv[0], "-p") == 0) {
-            port = static_cast<short>(atoi(argv[1]));
+            if (!parse_port(argv[1], port)) {
+                fprintf(stderr,
+                    "notify-forwarder: invalid port '%s': must be a whole number from 1 to 65535\n",
+                    argv[1]);
+                print_usage(argv0);
+                return EX_USAGE;
+            }
             argc -= 2;
             argv += 2;
         }

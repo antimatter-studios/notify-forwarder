@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #include <memory>
 
 #include "notify.h"
@@ -8,7 +10,7 @@ class UDPNotifyPluginImpl;
 
 class UDPNotifyPlugin : public INotifyPlugin {
 public:
-    UDPNotifyPlugin(const std::string& addr, short port);
+    UDPNotifyPlugin(const std::string& addr, uint16_t port);
 
 public:
     virtual ~UDPNotifyPlugin();

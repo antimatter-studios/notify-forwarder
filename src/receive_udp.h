@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #include <memory>
 
 #include "receive.h"
@@ -8,7 +10,7 @@ class UDPReceivePluginImpl;
 
 class UDPReceivePlugin : public IReceivePlugin {
 public:
-    UDPReceivePlugin(short port, const ReceiveCallback& callback);
+    UDPReceivePlugin(uint16_t port, const ReceiveCallback& callback);
 
 public:
     virtual ~UDPReceivePlugin();

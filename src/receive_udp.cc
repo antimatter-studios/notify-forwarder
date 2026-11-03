@@ -89,7 +89,7 @@ private:
 
 }
 
-UDPReceivePlugin::UDPReceivePlugin(short port, const ReceiveCallback& callback)
+UDPReceivePlugin::UDPReceivePlugin(uint16_t port, const ReceiveCallback& callback)
     : m_impl(new UDPReceivePluginImpl())
 {
     m_impl->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -117,7 +117,7 @@ UDPReceivePlugin::UDPReceivePlugin(short port, const ReceiveCallback& callback)
 
     if (bind_result != 0) {
         throw std::runtime_error(
-            "Could not bind port " + std::to_string(static_cast<unsigned short>(port)) + ": "
+            "Could not bind port " + std::to_string(port) + ": "
             + strerror(errno));
     }
 

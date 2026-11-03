@@ -105,7 +105,7 @@ build: $(OUT)
 
 TEST_OUT = $(OUT_DIR)/unit-tests
 
-$(TEST_OUT): tests/unit.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h src/utils.h src/watch_logic.h src/receive_paths.cc src/receive_paths.h
+$(TEST_OUT): tests/unit.cc src/port.h src/inject_utimes.cc src/inject_utimes.h src/inject.h src/utils.h src/watch_logic.h src/receive_paths.cc src/receive_paths.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/unit.cc src/inject_utimes.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
 
