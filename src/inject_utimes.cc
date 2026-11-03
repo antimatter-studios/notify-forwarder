@@ -35,6 +35,11 @@ int remove_attribute(int fd)
 
 }
 
+UtimesInjectPlugin::UtimesInjectPlugin(const std::vector<std::string>& roots)
+    : m_paths(roots)
+{
+}
+
 UtimesInjectPlugin::~UtimesInjectPlugin() { }
 
 // A writable open and close raises IN_OPEN and IN_CLOSE_WRITE, and creating and removing a private
@@ -46,7 +51,7 @@ UtimesInjectPlugin::~UtimesInjectPlugin() { }
 void UtimesInjectPlugin::inject(const std::vector<std::string>& paths)
 {
     for (const auto& path : paths) {
-        int fd = open(path.c_str(), O_WRONLY | O_CLOEXEC);
+        int fd = m_paths.open_regular(path);
         if (fd >= 0) {
             // A signal delivered between the two calls would leave the attribute on the file.
             sigset_t termination;

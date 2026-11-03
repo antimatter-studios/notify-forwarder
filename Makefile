@@ -49,6 +49,7 @@ COMMON_SRCS := \
 	src/watch_null.cc \
 	src/notify_udp.cc \
 	src/receive_udp.cc \
+	src/receive_paths.cc \
 	src/inject_utimes.cc \
 	src/main.cc \
 	src/main_receive.cc \
@@ -104,24 +105,30 @@ build: $(OUT)
 
 TEST_OUT = $(OUT_DIR)/unit-tests
 
-$(TEST_OUT): tests/unit.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h src/utils.h src/watch_logic.h
+$(TEST_OUT): tests/unit.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h src/utils.h src/watch_logic.h src/receive_paths.cc src/receive_paths.h
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/unit.cc src/inject_utimes.cc $(PLATFORM_LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/unit.cc src/inject_utimes.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
 
 RECEIVER_TEST_OUT = $(OUT_DIR)/receiver-tests
 
-$(RECEIVER_TEST_OUT): tests/receiver.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h
+$(RECEIVER_TEST_OUT): tests/receiver.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h src/receive_paths.cc src/receive_paths.h
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/receiver.cc src/inject_utimes.cc $(PLATFORM_LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/receiver.cc src/inject_utimes.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
 
 RACE_TEST_OUT = $(OUT_DIR)/receiver-race-tests
 
-$(RACE_TEST_OUT): tests/receiver_race.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h
+$(RACE_TEST_OUT): tests/receiver_race.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h src/receive_paths.cc src/receive_paths.h
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/receiver_race.cc $(PLATFORM_LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/receiver_race.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
 
-test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT)
-	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT); do $$suite || status=1; done; exit $$status
+PATH_TEST_OUT = $(OUT_DIR)/path-tests
+
+$(PATH_TEST_OUT): tests/paths.cc src/receive_paths.cc src/receive_paths.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/paths.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
+
+test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT)
+	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT); do $$suite || status=1; done; python3 tests/receiver_cli.py $(OUT) || status=1; exit $$status
 
 test-inotify: build
 	python3 tests/inotify.py $(OUT)
@@ -139,6 +146,9 @@ $(OBJ_DIR)/%.o: src/%.cc | $(OBJ_DIR)
 clean:
 	rm -rf _build
 
-.PHONY: all clean build test test-inotify $(SUPPORTED_TARGETS)
+test-receiver-root: build
+	sudo python3 tests/receiver_root.py $(OUT)
+
+.PHONY: all clean build test test-inotify test-receiver-root $(SUPPORTED_TARGETS)
 
 -include $(DEPFILES)

@@ -26,3 +26,5 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y inotify-tools nodejs strace
       - name: Exercise watch-to-receiver forwarding
         run: make CXX=c++ test-inotify
+      - name: Refuse everything but permitted regular files as root
+        run: make CXX=c++ test-receiver-root
