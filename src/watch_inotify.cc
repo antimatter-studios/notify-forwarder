@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <algorithm>
 #include <stdexcept>
 
 #include <memory>
@@ -87,9 +88,6 @@ public:
 
 public:
     WatchCallback callback;
-
-public:
-    bool running;
 };
 
 InotifyWatchPlugin::InotifyWatchPlugin(
@@ -102,7 +100,6 @@ InotifyWatchPlugin::InotifyWatchPlugin(
     }
 
     m_impl->paths = paths;
-    m_impl->running = true;
     m_impl->callback = callback;
 }
 
@@ -113,7 +110,7 @@ InotifyWatchPlugin::~InotifyWatchPlugin()
     }
 }
 
-void InotifyWatchPlugin::start()
+void InotifyWatchPlugin::start(int stop_fd)
 {
     DirectoryMap directory_map;
 
@@ -134,15 +131,20 @@ void InotifyWatchPlugin::start()
         throw std::logic_error("Could not clear out emptyset");
     }
 
-    while (m_impl->running) {
+    for (;;) {
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(m_impl->fd, &fds);
+        FD_SET(stop_fd, &fds);
 
-        int select_result = pselect(m_impl->fd + 1, &fds, nullptr, nullptr, &timeout, &emptyset);
+        const int highest_fd = std::max(m_impl->fd, stop_fd);
+        int select_result = pselect(highest_fd + 1, &fds, nullptr, nullptr, &timeout, &emptyset);
 
         if (select_result == -1 && errno != EINTR) {
             throw std::runtime_error("Could not select on inotify file");
+        }
+        else if (select_result > 0 && FD_ISSET(stop_fd, &fds)) {
+            return;
         }
         else if (select_result > 0) {
             int length = read(m_impl->fd, buf, sizeof(buf));
@@ -179,5 +181,3 @@ void InotifyWatchPlugin::start()
         }
     }
 }
-
-void InotifyWatchPlugin::stop() { m_impl->running = false; }

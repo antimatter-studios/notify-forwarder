@@ -16,20 +16,6 @@
 #include "inject.h"
 #include "inject_utimes.h"
 
-#include "platform.h"
-
-static IReceivePlugin* gCurrentReceiveInstance = nullptr;
-
-static void handle_sigint(__unused int signal)
-{
-    if (gCurrentReceiveInstance) {
-        gCurrentReceiveInstance->stop();
-    }
-    else {
-        exit(EX_OK);
-    }
-}
-
 static void print_usage(char* argv0)
 {
     fprintf(stderr, "Usage: %s receive [-p port] [root ...]\n", argv0);
@@ -79,11 +65,10 @@ int main_receive(char* argv0, int argc, char** argv)
     ReceiveCallback callback
         = [&injector](std::vector<std::string> paths) { injector->inject(paths); };
 
+    StopSignals stop_signals;
     UDPReceivePlugin receive_plugin(port, callback);
-    SignalOverride(SIGINT, handle_sigint);
-    VariableOverrideGuard<IReceivePlugin*> var_guard(gCurrentReceiveInstance, &receive_plugin);
 
-    receive_plugin.start();
+    receive_plugin.start(stop_signals.fd());
 
     return EX_OK;
 }

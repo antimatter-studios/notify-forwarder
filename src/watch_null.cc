@@ -14,6 +14,4 @@ NullWatchPlugin::NullWatchPlugin(
 
 NullWatchPlugin::~NullWatchPlugin() {}
 
-void NullWatchPlugin::start() {}
-
-void NullWatchPlugin::stop() {}
+void NullWatchPlugin::start(__unused int stop_fd) {}
