@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/inotify.h>
 #include <sys/stat.h>
@@ -13,6 +14,7 @@
 #include <unordered_map>
 
 #include "watch_inotify.h"
+#include "watch_tree.h"
 
 #define READ_BUF_LEN (1024 * (sizeof(inotify_event) + 16))
 
@@ -150,6 +152,7 @@ void InotifyWatchPlugin::start(int stop_fd)
             int length = read(m_impl->fd, buf, sizeof(buf));
 
             std::vector<std::string> paths_to_notify;
+            bool overflowed = false;
 
             if (length == -1) {
                 throw std::runtime_error("Could not read data from inotify file");
@@ -158,20 +161,40 @@ void InotifyWatchPlugin::start(int stop_fd)
             for (int i = 0; i < length;) {
                 inotify_event* event = reinterpret_cast<inotify_event*>(&buf[i]);
 
-                if (event->len) {
+                if (event->mask & IN_Q_OVERFLOW) {
+                    overflowed = true;
+                }
+                else if (event->len) {
                     std::string root = directory_map.at(event->wd);
                     std::string path = root + "/" + event->name;
 
+                    paths_to_notify.emplace_back(path);
+
                     if (event->mask & IN_ISDIR) {
                         if (event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
-                            add_directory_watch(m_impl->fd, path, directory_map);
+                            // Anything made in it before its watch existed raised no event.
+                            if (add_directory_watch(m_impl->fd, path, directory_map)) {
+                                append_tree(path, paths_to_notify);
+                            }
                         }
                     }
-
-                    paths_to_notify.emplace_back(path);
                 }
 
                 i += sizeof(inotify_event) + event->len;
+            }
+
+            if (overflowed) {
+                // The queue lost events, so nothing says which directories are new or what changed.
+                for (auto& path : m_impl->paths) {
+                    fprintf(stderr,
+                        "notify-forwarder: the inotify queue overflowed and events were lost, "
+                        "forwarding everything under %s\n",
+                        path.c_str());
+                    if (add_directory_watch(m_impl->fd, path, directory_map)) {
+                        paths_to_notify.emplace_back(path);
+                        append_tree(path, paths_to_notify);
+                    }
+                }
             }
 
             m_impl->callback(paths_to_notify);

@@ -1,6 +1,9 @@
 #include <CoreServices/CoreServices.h>
 
+#include <stdio.h>
+
 #include "watch_fsevents.h"
+#include "watch_tree.h"
 
 class FSEventsWatchPluginImpl {
 public:
@@ -23,11 +26,15 @@ static void idle_timer_callback(__unused CFRunLoopTimerRef timer, void* info)
     static_cast<FSEventsWatchPluginImpl*>(info)->callback({});
 }
 
+// FSEvents lost events under this path, in the kernel or in this process's own queue.
+static const FSEventStreamEventFlags dropped_events = kFSEventStreamEventFlagMustScanSubDirs
+    | kFSEventStreamEventFlagUserDropped | kFSEventStreamEventFlagKernelDropped;
+
 static void fsevents_callback(__unused ConstFSEventStreamRef stream,
     void* client_callback_info,
     size_t num_events,
     void* event_paths,
-    __unused const FSEventStreamEventFlags event_flags[],
+    const FSEventStreamEventFlags event_flags[],
     __unused const FSEventStreamEventId event_ids[])
 {
     FSEventsWatchPluginImpl* impl = static_cast<FSEventsWatchPluginImpl*>(client_callback_info);
@@ -35,7 +42,20 @@ static void fsevents_callback(__unused ConstFSEventStreamRef stream,
     std::vector<std::string> paths;
 
     for (size_t i = 0; i < num_events; ++i) {
-        const char* path = static_cast<const char**>(event_paths)[i];
+        std::string path = static_cast<const char**>(event_paths)[i];
+
+        if (event_flags[i] & dropped_events) {
+            while (path.size() > 1 && path.back() == '/') {
+                path.pop_back();
+            }
+            fprintf(stderr,
+                "notify-forwarder: events under %s were lost, forwarding everything there\n",
+                path.c_str());
+            paths.emplace_back(path);
+            append_tree(path, paths);
+            continue;
+        }
+
         paths.emplace_back(path);
     }
 
