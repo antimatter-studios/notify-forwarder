@@ -9,16 +9,10 @@ import sys
 import tempfile
 import time
 
-from inotify import wait_for_bind
+from inotify import free_port, wait_for_bind
 
 # MAXPATHLEN on the platforms this runs on. A longer limit here only makes the padding longer.
 LONGEST_PATH = {"Linux": 4096, "Darwin": 1024}
-
-
-def free_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        return reservation.getsockname()[1]
 
 
 def main():

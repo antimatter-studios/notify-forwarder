@@ -15,7 +15,7 @@ import tempfile
 import threading
 import time
 
-from inotify import read_until, stop, wait_for_bind
+from inotify import free_port, read_until, stop, wait_for_bind
 
 
 def main():
@@ -63,9 +63,7 @@ def main():
                 os.replace(nodes / "next", swapped)
                 index += 1
 
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-            reservation.bind(("127.0.0.1", 0))
-            port = reservation.getsockname()[1]
+        port = free_port()
         read_until(watch.stderr, b"Watches established.")
         receiver = subprocess.Popen([binary, "receive", "-p", str(port), str(allowed)], stderr=subprocess.PIPE)
         swapper = threading.Thread(target=swap_types)

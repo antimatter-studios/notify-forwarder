@@ -16,6 +16,8 @@ import tempfile
 import threading
 import time
 
+from inotify import free_port
+
 WINDOW = 1.0
 
 
@@ -39,12 +41,6 @@ class Relay(threading.Thread):
 
     def forwarded(self, path):
         return [when for when, name in list(self.seen) if name == str(path)]
-
-
-def free_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        return reservation.getsockname()[1]
 
 
 def wait_for(condition, timeout, description):

@@ -16,17 +16,11 @@ import tempfile
 import threading
 import time
 
-from inotify import wait_for_bind
+from inotify import free_port, wait_for_bind
 
 FLOOD = 50000
 FILES = 20000
 SENDERS = 4
-
-
-def free_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        return reservation.getsockname()[1]
 
 
 def kernel_counts(port):

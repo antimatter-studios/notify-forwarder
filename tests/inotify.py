@@ -3,6 +3,7 @@ import argparse
 import errno
 import os
 from pathlib import Path
+import random
 import select
 import signal
 import socket
@@ -44,6 +45,27 @@ MUTATIONS = (
     "?write,?pwrite64,?pwritev,?pwritev2,?writev,?truncate,?ftruncate,?fallocate,?utime,?utimes,"
     "?utimensat,?futimesat,?chmod,?fchmod,?fchmodat,?fchmodat2,?chown,?fchown,?lchown,?fchownat"
 )
+
+
+# Below the range the kernel hands to any socket that does not ask for a port: 32768 and up on Linux,
+# 49152 and up on macOS. A port from that range can be taken by another process between closing a
+# reservation and the receiver binding it.
+RECEIVER_PORTS = range(20000, 32768)
+
+
+def free_port():
+    """A port for a receiver. Checked on the wildcard address the receiver binds: a port free on
+    loopback can be held on another local address, and the receiver is then refused."""
+    for port in random.sample(RECEIVER_PORTS, len(RECEIVER_PORTS)):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as candidate:
+            try:
+                candidate.bind(("0.0.0.0", port))
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise
+                continue
+            return port
+    raise AssertionError(f"no free port from {RECEIVER_PORTS.start} to {RECEIVER_PORTS.stop - 1}")
 
 
 def wait_for_bind(port, timeout=10):
@@ -129,9 +151,7 @@ def main():
             )
             processes.append(node)
             read_until(node.stdout, b"ready")
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-                reservation.bind(("127.0.0.1", 0))
-                port = reservation.getsockname()[1]
+            port = free_port()
             trace_path = root / "receiver.strace"
             receiver = TracedProcess(
                 ["strace", "-f", "-y", "-s", "4096", "-o", str(trace_path),
