@@ -3,3 +3,4 @@
 /src/*.o
 .idea
 .history
+__pycache__/
