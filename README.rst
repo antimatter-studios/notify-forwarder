@@ -44,6 +44,10 @@ On Linux hosts you will need ``zig`` available when building the cross
 targets. The GitHub Actions workflow uses ``mlugg/setup-zig`` to install it
 during automated builds.
 
+``make build`` and ``make test`` target the machine they run on. A Linux host
+whose ``uname -m`` says ``aarch64`` is the ``arm64`` target, so its binary is
+``_build/Linux_arm64/notify-forwarder``.
+
 
 Running
 =======

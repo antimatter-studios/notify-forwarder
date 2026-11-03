@@ -1,5 +1,6 @@
 HOST_OS := $(shell uname -s)
-HOST_ARCH := $(shell uname -m)
+# uname -m says aarch64 on Linux and arm64 on macOS. The targets below call both arm64.
+HOST_ARCH := $(patsubst aarch64,arm64,$(shell uname -m))
 
 TARGET_OS ?= $(HOST_OS)
 TARGET_ARCH ?= $(HOST_ARCH)
