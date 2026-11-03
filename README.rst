@@ -66,6 +66,53 @@ And on the client side:
 The "host side" here being the file system that will send events, i.e. where you run the text
 editor. The "client side" is where the auto reloading build system runs.
 
+What the receiver does to a file
+--------------------------------
+
+The receiver raises events in the guest and never writes file data, size, mode or mtime. For each
+path it opens the file for writing, creates and removes a private extended attribute
+(``user.notify-forwarder``), and closes it. That raises ``IN_OPEN``, ``IN_ATTRIB`` and
+``IN_CLOSE_WRITE``. It changes the file's ctime, and over a shared folder the host sees that ctime
+change. A receiver killed with ``SIGKILL`` between the two attribute calls leaves the attribute on
+the file until the next event for that file removes it.
+
+**It cannot raise IN_MODIFY.** No call measured raises ``IN_MODIFY`` without changing mtime, so a
+watcher that only listens for ``IN_MODIFY`` sees nothing. Node's ``fs.watch`` does report
+``IN_ATTRIB``, as ``change``.
+
+**A filesystem without user extended attributes gets no IN_ATTRIB.** NFSv3 is one. The receiver
+prints one warning and raises only ``IN_OPEN`` and ``IN_CLOSE_WRITE``, which ``inotifywait`` sees and
+``fs.watch`` does not. The receiver also raises nothing on a file it cannot open for writing.
+
+What each call does, measured on Linux 6.1 against ext4, virtiofs, NFSv3 and NFS 4.2 with
+``tests/kernel_events.py``, with results for the file as the host or NFS server sees it:
+
+==================================  ==========================  ==========  =========================
+Call                                Event                       fs.watch    Changes
+==================================  ==========================  ==========  =========================
+``open(O_WRONLY)``, ``close``       ``OPEN``, ``CLOSE_WRITE``   nothing     nothing
+``fsetxattr``, ``fremovexattr``     ``ATTRIB``, not on NFSv3    ``change``  ctime
+``fchmod`` to the current mode      ``ATTRIB``                  ``change``  ctime, submits a mode
+``fchown`` to the current owner     ``ATTRIB``                  ``change``  ctime, submits an owner
+``futimens`` to the current times   ``ATTRIB``                  ``change``  ctime, submits an mtime
+``futimens(OMIT, OMIT)``            nothing                     nothing     nothing
+``fchown(-1, -1)``                  nothing                     nothing     nothing
+``write`` of zero bytes             ``CLOSE_WRITE`` only        nothing     nothing
+``fallocate(KEEP_SIZE)``            ``MODIFY`` on ext4,         ``change``  mtime on ext4
+                                    refused on virtiofs, NFS
+``ftruncate`` to the current size   ``MODIFY``                  ``change``  mtime, submits a size
+==================================  ==========================  ==========  =========================
+
+A call that submits a value the receiver read earlier puts that value back if the writer changed it
+in the meantime. Over a shared folder the earlier read can come from the guest's attribute cache:
+``fchmod`` to the mode from ``fstat`` undid a host ``chmod`` in 10 of 10 tries up to 0.6 seconds later
+on virtiofs, and in 0 of 10 at 1.5 seconds.
+
+``tests/shared_folder.py`` runs the receiver on a real shared folder: 168 files, 1 MiB each, written
+by the host while the receiver is notified of all of them. Run with this injection, every file kept
+its bytes, size, mode and mtime. Injectors that submitted the current mtime or mode did not: 6 and 17
+of 168 files lost the host's value.
+
 
 
 .. _notify-forwarder_osx_x64: https://github.com/mhallin/notify-forwarder/releases/download/release%2Fv0.1.0/notify-forwarder_osx_x64
