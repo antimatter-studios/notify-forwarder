@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
@@ -18,11 +20,12 @@
 
 static void print_usage(char* argv0)
 {
-    fprintf(stderr, "Usage: %s watch [-c host[:port]] (<from> <to>)...\n", argv0);
+    fprintf(stderr, "Usage: %s watch [-c address[:port]] (<from> <to>)...\n", argv0);
     fprintf(stderr, "\n");
-    fprintf(stderr, "  (<from> <to>)   pairs of paths, the first being the local path to watch\n");
-    fprintf(stderr, "                  and the second one being the remote path\n");
-    fprintf(stderr, "  -c host:[port]  specifies where to connect. Defaults to 127.0.0.1:29324\n");
+    fprintf(stderr, "  (<from> <to>)      pairs of paths, the first being the local path\n");
+    fprintf(stderr, "                     to watch and the second one being the remote path\n");
+    fprintf(stderr, "  -c address[:port]  the IPv4 address to send to.\n");
+    fprintf(stderr, "                     Defaults to 127.0.0.1:29324\n");
     fprintf(stderr, "\n");
 }
 
@@ -66,7 +69,11 @@ int main_watch(char* argv0, int argc, char** argv)
         char* in_path = argv[i];
 
         if (!realpath(in_path, out_path)) {
-            throw std::runtime_error("Could not resolve path");
+            fprintf(stderr,
+                "notify-forwarder: could not resolve %s: %s\n",
+                in_path,
+                strerror(errno));
+            return EX_NOINPUT;
         }
 
         watch_paths.emplace_back(out_path);

@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 
 #include "receive_udp.h"
 
@@ -93,7 +94,7 @@ UDPReceivePlugin::UDPReceivePlugin(short port, const ReceiveCallback& callback)
 {
     m_impl->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (m_impl->socket_fd == -1) {
-        throw std::runtime_error("Could not create sending socket");
+        throw std::runtime_error(std::string("Could not create the socket: ") + strerror(errno));
     }
 
     // As much room for a burst as the system allows. A limit lower than this changes nothing else.
@@ -115,7 +116,9 @@ UDPReceivePlugin::UDPReceivePlugin(short port, const ReceiveCallback& callback)
         = bind(m_impl->socket_fd, reinterpret_cast<sockaddr*>(&dest_addr), sizeof(dest_addr));
 
     if (bind_result != 0) {
-        throw std::runtime_error("Could not bind listening socket");
+        throw std::runtime_error(
+            "Could not bind port " + std::to_string(static_cast<unsigned short>(port)) + ": "
+            + strerror(errno));
     }
 
     m_impl->callback = callback;

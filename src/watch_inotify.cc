@@ -36,9 +36,16 @@ bool is_directory(const dirent* entry, const std::string& path)
     return lstat(path.c_str(), &status) == 0 && S_ISDIR(status.st_mode);
 }
 
-bool is_gone(int error) { return error == ENOENT || error == ENOTDIR; }
+// A directory that went, or that this user may not read. Neither stops the rest of the tree.
+bool can_be_skipped(int error) { return error == ENOENT || error == ENOTDIR || error == EACCES; }
 
-// Returns false if root is no longer a directory, which a changing tree makes an ordinary outcome.
+bool skip_directory(const std::string& path, int error)
+{
+    fprintf(stderr, "notify-forwarder: skipped %s: %s\n", path.c_str(), strerror(error));
+    return false;
+}
+
+// Returns false if root could not be watched, which a changing tree makes an ordinary outcome.
 bool add_directory_watch(int fd, const std::string& root, DirectoryMap& directory_map)
 {
     int result = inotify_add_watch(fd,
@@ -47,10 +54,15 @@ bool add_directory_watch(int fd, const std::string& root, DirectoryMap& director
             | IN_DONT_FOLLOW);
 
     if (result == -1) {
-        if (is_gone(errno)) {
-            return false;
+        const int error = errno;
+        if (can_be_skipped(error)) {
+            return skip_directory(root, error);
         }
-        throw std::runtime_error("Could not add watch");
+        if (error == ENOSPC) {
+            throw std::runtime_error("Could not watch " + root
+                + ": the inotify watch limit is reached, raise fs.inotify.max_user_watches");
+        }
+        throw std::runtime_error("Could not watch " + root + ": " + strerror(error));
     }
 
     // Stays in the map if the directory goes now: events already queued for this watch name it.
@@ -58,10 +70,11 @@ bool add_directory_watch(int fd, const std::string& root, DirectoryMap& director
 
     DirHandle dir(opendir(root.c_str()), closedir);
     if (!dir) {
-        if (is_gone(errno)) {
-            return false;
+        const int error = errno;
+        if (can_be_skipped(error)) {
+            return skip_directory(root, error);
         }
-        throw std::runtime_error("Could not open directory");
+        throw std::runtime_error("Could not open " + root + ": " + strerror(error));
     }
 
     dirent* entry;
@@ -155,7 +168,11 @@ void InotifyWatchPlugin::start(int stop_fd)
             bool overflowed = false;
 
             if (length == -1) {
-                throw std::runtime_error("Could not read data from inotify file");
+                if (errno == EINTR) {
+                    continue;
+                }
+                throw std::runtime_error(
+                    std::string("Could not read from inotify: ") + strerror(errno));
             }
 
             for (int i = 0; i < length;) {
