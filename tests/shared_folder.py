@@ -19,7 +19,7 @@ import tempfile
 import threading
 import time
 
-from inotify import read_until, snapshot, stop
+from inotify import free_port, read_until, snapshot, stop
 
 FILES = 168
 SETTLE_SECONDS = 2.5
@@ -59,9 +59,7 @@ def guest(binary, directory, port):
             )
             processes.append(node)
             read_until(node.stdout, b"ready")
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-                reservation.bind(("127.0.0.1", 0))
-                receiver_port = reservation.getsockname()[1]
+            receiver_port = free_port()
             receiver = subprocess.Popen(
                 [binary, "receive", "-p", str(receiver_port)], stderr=subprocess.PIPE,
             )

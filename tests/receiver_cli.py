@@ -8,7 +8,7 @@ import tempfile
 import threading
 import time
 
-from inotify import read_until, stop
+from inotify import free_port, read_until, stop
 
 
 def notify_and_acknowledge(receiver, sender, port, rejected, control):
@@ -23,9 +23,7 @@ def notify_and_acknowledge(receiver, sender, port, rejected, control):
 
 
 def start_receiver(binary, roots):
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
+    port = free_port()
     process = subprocess.Popen(
         [binary, "receive", "-p", str(port), *map(str, roots)], stderr=subprocess.PIPE,
     )

@@ -11,16 +11,10 @@ import tempfile
 import threading
 import time
 
-from inotify import wait_for_bind
+from inotify import free_port, wait_for_bind
 
 CYCLES = 5
 STOP_TIMEOUT = 5
-
-
-def free_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        return reservation.getsockname()[1]
 
 
 def wait_for_stop(process, name):
