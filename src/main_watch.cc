@@ -44,7 +44,7 @@ int main_watch(char* argv0, int argc, char** argv)
 {
     std::vector<std::string> watch_paths;
     std::vector<std::pair<std::string, std::string>> prefix_map;
-    FeedbackMap feedback_map;
+    RepeatFilter repeat_filter;
 
     std::string dest_addr = "127.0.0.1";
     short port = 29324;
@@ -90,14 +90,14 @@ int main_watch(char* argv0, int argc, char** argv)
     UDPNotifyPlugin notify_plugin(dest_addr, port);
 
     WatchCallback callback
-        = [&notify_plugin, &prefix_map, &feedback_map](std::vector<std::string> paths) {
+        = [&notify_plugin, &prefix_map, &repeat_filter](std::vector<std::string> paths) {
               std::vector<std::string> out_paths;
 
-              for (auto& path : paths) {
+              for (auto& path : repeat_filter.update(paths, Clock::now())) {
                   out_paths.emplace_back(replace_prefix(prefix_map, path));
               }
 
-              notify_plugin.notify(filter_feedback(feedback_map, out_paths));
+              notify_plugin.notify(out_paths);
           };
 
     WATCH_PLUGIN_TYPE plugin(watch_paths, callback);
