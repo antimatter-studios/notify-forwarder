@@ -100,6 +100,23 @@ The macOS fallback checks the file before and after opening it, but does not hav
 pinning guarantee. A privileged macOS receiver must not be exposed to senders that can replace file
 types while it is opening them.
 
+What a burst loses
+------------------
+
+Each path is one UDP datagram, so a burst can overflow a socket buffer. The receiver asks for a 16
+MiB buffer, which the system may cap (``net.core.rmem_max`` on Linux). On Linux it reports what the
+kernel dropped, at most once a second, as ``N paths lost to a full socket buffer so far``. Other
+platforms have no such count. The guest's watcher misses the event for a lost path, and the next
+change to that file raises a new one.
+
+The sender reports its own losses. When FSEvents sets ``MustScanSubDirs``, ``UserDropped`` or
+``KernelDropped``, or the inotify queue overflows, nothing says what changed, so the sender prints a
+message and forwards every path under that subtree, or under each watched root for an overflow. The
+same walk covers a new directory on Linux, whose first files can appear before its watch exists.
+
+A datagram as long as ``MAXPATHLEN`` or longer is refused and counted, and never cut down into a
+different path.
+
 What the receiver does to a file
 --------------------------------
 

@@ -127,8 +127,16 @@ $(PATH_TEST_OUT): tests/paths.cc src/receive_paths.cc src/receive_paths.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/paths.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
 
-test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT)
-	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT); do $$suite || status=1; done; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; exit $$status
+ifeq ($(TARGET_OS),Darwin)
+FLAGS_TEST_OUT = $(OUT_DIR)/fsevents-flags-tests
+
+$(FLAGS_TEST_OUT): tests/fsevents_flags.cc src/watch_fsevents.cc src/watch_fsevents.h src/watch.h src/watch_tree.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/fsevents_flags.cc $(PLATFORM_LDFLAGS) -o $@
+endif
+
+test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(FLAGS_TEST_OUT)
+	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; exit $$status
 
 TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
 
@@ -136,8 +144,14 @@ $(TREE_TEST_OUT): tests/inotify_tree.cc src/watch_inotify.cc src/watch_inotify.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/inotify_tree.cc $(PLATFORM_LDFLAGS) -o $@
 
-test-inotify: build $(TREE_TEST_OUT)
-	status=0; $(TREE_TEST_OUT) || status=1; python3 tests/inotify_tree.py $(OUT) || status=1; exit $$status
+RESYNC_TEST_OUT = $(OUT_DIR)/inotify-resync-tests
+
+$(RESYNC_TEST_OUT): tests/inotify_resync.cc src/watch_inotify.cc src/watch_inotify.h src/watch.h src/watch_tree.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread -Isrc tests/inotify_resync.cc $(PLATFORM_LDFLAGS) -o $@
+
+test-inotify: build $(TREE_TEST_OUT) $(RESYNC_TEST_OUT)
+	status=0; $(TREE_TEST_OUT) || status=1; $(RESYNC_TEST_OUT) || status=1; python3 tests/inotify_tree.py $(OUT) || status=1; python3 tests/burst.py $(OUT) || status=1; exit $$status
 	python3 tests/inotify.py $(OUT)
 	python3 tests/kernel_events.py
 

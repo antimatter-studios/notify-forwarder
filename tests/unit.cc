@@ -290,6 +290,16 @@ int main()
     check(replace_prefix(prefixes, "/unmapped/file") == "/unmapped/file",
         "unmapped paths remain unchanged");
     check(replace_prefix({}, "/file") == "/file", "empty prefix maps are accepted");
+    PrefixMap boundary { { "/foo", "/guest" } };
+    check(replace_prefix(boundary, "/foobar/file") == "/foobar/file",
+        "a prefix does not match a longer directory name");
+    check(replace_prefix(boundary, "/foo") == "/guest", "a prefix matches the directory itself");
+    check(replace_prefix(boundary, "/foo/file") == "/guest/file", "a prefix matches beneath it");
+    PrefixMap ordered { { "/foo", "/first" }, { "/foobar", "/second" } };
+    check(replace_prefix(ordered, "/foobar/file") == "/second/file",
+        "a shorter prefix does not take a longer directory from a later entry");
+    PrefixMap whole_tree { { "/", "/guest/" } };
+    check(replace_prefix(whole_tree, "/file") == "/guest/file", "the root matches everything");
 
     test_first_and_duplicates();
     test_echo_is_dropped();

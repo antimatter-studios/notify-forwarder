@@ -15,10 +15,20 @@ typedef std::chrono::steady_clock Clock;
 typedef Clock::time_point TimePoint;
 typedef std::vector<std::pair<std::string, std::string>> PrefixMap;
 
+// Whether a path is a directory or lies beneath it. /foo holds /foo/bar, and does not hold /foobar.
+inline bool is_within(const std::string& path, const std::string& directory)
+{
+    if (directory.empty() || path.compare(0, directory.size(), directory) != 0) {
+        return false;
+    }
+    return path.size() == directory.size() || directory.back() == '/'
+        || path[directory.size()] == '/';
+}
+
 inline std::string replace_prefix(const PrefixMap& prefix_map, std::string src)
 {
     for (const auto& pair : prefix_map) {
-        if (src.substr(0, pair.first.size()) == pair.first) {
+        if (is_within(src, pair.first)) {
             return pair.second + src.substr(pair.first.size());
         }
     }
