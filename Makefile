@@ -137,6 +137,7 @@ endif
 
 test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(FLAGS_TEST_OUT)
 	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; exit $$status
+	python3 tests/bind_probe.py $(OUT)
 
 TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
 

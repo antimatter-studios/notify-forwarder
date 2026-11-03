@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import errno
 import os
 from pathlib import Path
 import select
@@ -47,12 +48,32 @@ MUTATIONS = (
 
 def wait_for_bind(port, timeout=10):
     deadline = time.monotonic() + timeout
+    source_port = 1024
     while time.monotonic() < deadline:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            for source_port in range(source_port, 65536):
+                if source_port == port:
+                    continue
+                try:
+                    probe.bind(("127.0.0.1", source_port))
+                    break
+                except OSError as error:
+                    if error.errno != errno.EADDRINUSE:
+                        raise
+            else:
+                raise AssertionError("no source port available for the readiness probe")
+            probe.connect(("127.0.0.1", port))
+            probe.settimeout(0.02)
             try:
-                probe.bind(("0.0.0.0", port))
-            except OSError:
+                probe.send(b"")
+                probe.recv(1)
+            except ConnectionRefusedError:
+                pass
+            except socket.timeout:
                 return
+            else:
+                return
+        source_port += 1
         time.sleep(0.02)
     raise AssertionError(f"receiver did not bind port {port}")
 
