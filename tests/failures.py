@@ -39,6 +39,26 @@ def port_in_use(binary, _directory):
     require_message_and_status(result, str(port))
 
 
+INVALID_PORTS = ("70000", "65536", "0", "-1", "abc", "80x", " 80", "+80", "")
+
+
+def require_usage(result, port):
+    assert result.returncode == 64, f"port {port!r}: status {result.returncode}, stderr {result.stderr!r}"
+    assert "Usage:" in result.stderr, f"port {port!r}: no usage in {result.stderr!r}"
+    assert f"'{port}'" in result.stderr, f"port {port!r}: not named in {result.stderr!r}"
+
+
+def invalid_receive_port(binary, _directory):
+    for port in INVALID_PORTS:
+        require_usage(finished([binary, "receive", "-p", port], timeout=3), port)
+
+
+def invalid_watch_port(binary, directory):
+    for port in INVALID_PORTS:
+        result = finished([binary, "watch", "-c", f"127.0.0.1:{port}", str(directory), "/guest"], timeout=3)
+        require_usage(result, port)
+
+
 def send_failure(binary, directory):
     """A mapped path longer than any datagram is refused by the kernel, on Linux and macOS alike."""
     tree = directory / "send-failure"
@@ -80,7 +100,10 @@ def main():
     failures = 0
     with tempfile.TemporaryDirectory(prefix="notify-forwarder-failures-") as scratch:
         directory = Path(scratch).resolve()
-        for case in (unresolvable_watch_path, unreadable_address, port_in_use, send_failure):
+        for case in (
+            unresolvable_watch_path, unreadable_address, port_in_use, invalid_receive_port,
+            invalid_watch_port, send_failure,
+        ):
             try:
                 case(binary, directory)
                 print(f"PASS {case.__name__}")

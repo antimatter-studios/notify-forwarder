@@ -7,6 +7,7 @@
 #include <stdexcept>
 
 #include "inject_utimes.h"
+#include "port.h"
 #include "utils.h"
 #include "watch_logic.h"
 
@@ -280,6 +281,23 @@ static void test_path_state_on_a_real_file()
     rmdir(directory);
 }
 
+static void test_parse_port()
+{
+    uint16_t port = 7;
+    check(parse_port("1", port) && port == 1, "port 1 is accepted");
+    check(parse_port("29324", port) && port == 29324, "a port in range is read as written");
+    check(parse_port("65535", port) && port == 65535, "port 65535 is accepted");
+    port = 7;
+    const char* refused[] = { "0", "65536", "70000", "4294967297", "99999999999999999999", "-1",
+        "+80", " 80", "80 ", "80x", "0x50", "abc", "" };
+    bool all_refused = true;
+    for (const char* text : refused) {
+        all_refused = !parse_port(text, port) && all_refused;
+    }
+    check(all_refused, "a port that is not a whole number from 1 to 65535 is refused");
+    check(port == 7, "a refused port leaves the value alone");
+}
+
 int main()
 {
     PrefixMap prefixes { { "/host/project", "/guest/project" }, { "/other", "/second" } };
@@ -310,6 +328,7 @@ int main()
     test_coarse_timestamps();
     test_forgets_quiet_paths();
     test_path_state_on_a_real_file();
+    test_parse_port();
 
     int value = 4;
     {

@@ -6,6 +6,7 @@
 #include <sysexits.h>
 
 #include "main.h"
+#include "port.h"
 #include "watch_logic.h"
 
 #include "utils.h"
@@ -25,6 +26,7 @@ static void print_usage(char* argv0)
     fprintf(stderr, "  (<from> <to>)      pairs of paths, the first being the local path\n");
     fprintf(stderr, "                     to watch and the second one being the remote path\n");
     fprintf(stderr, "  -c address[:port]  the IPv4 address to send to.\n");
+    fprintf(stderr, "                     The port is from 1 to 65535.\n");
     fprintf(stderr, "                     Defaults to 127.0.0.1:29324\n");
     fprintf(stderr, "\n");
 }
@@ -36,7 +38,7 @@ int main_watch(char* argv0, int argc, char** argv)
     RepeatFilter repeat_filter;
 
     std::string dest_addr = "127.0.0.1";
-    short port = 29324;
+    uint16_t port = 29324;
 
     if (argc && strcmp(argv[0], "-c") == 0) {
         if (argc < 2) {
@@ -52,7 +54,14 @@ int main_watch(char* argv0, int argc, char** argv)
         }
         else {
             dest_addr = param.substr(0, pos);
-            port = static_cast<short>(atoi(param.substr(pos + 1).c_str()));
+            std::string port_text = param.substr(pos + 1);
+            if (!parse_port(port_text, port)) {
+                fprintf(stderr,
+                    "notify-forwarder: invalid port '%s': must be a whole number from 1 to 65535\n",
+                    port_text.c_str());
+                print_usage(argv0);
+                return EX_USAGE;
+            }
         }
 
         argc -= 2;

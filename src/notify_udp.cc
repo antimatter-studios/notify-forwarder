@@ -47,7 +47,7 @@ void wait_before_retry(int attempt)
 
 }
 
-UDPNotifyPlugin::UDPNotifyPlugin(const std::string& addr, short port)
+UDPNotifyPlugin::UDPNotifyPlugin(const std::string& addr, uint16_t port)
     : m_impl(new UDPNotifyPluginImpl())
 {
     m_impl->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
