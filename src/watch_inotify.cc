@@ -162,6 +162,9 @@ void InotifyWatchPlugin::start()
 
             m_impl->callback(paths_to_notify);
         }
+        else {
+            m_impl->callback({});
+        }
     }
 }
 

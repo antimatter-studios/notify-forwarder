@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+// Called with the paths that changed, and with an empty batch about every 100 ms while nothing
+// does, so that work waiting on the clock still happens.
 typedef std::function<void(std::vector<std::string>)> WatchCallback;
 
 class IWatchPlugin {

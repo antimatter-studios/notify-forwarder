@@ -136,7 +136,7 @@ def main():
                     if process.poll() is not None:
                         raise AssertionError(process.stderr.read().decode())
                 if now >= next_write:
-                    # Slower than the sender's one-second repeat filter, which a steady writer starves.
+                    # A change per repeat window, so that each one is forwarded without waiting.
                     (source / "file").write_text(f"source update {iteration}")
                     iteration += 1
                     next_write = now + 1.2

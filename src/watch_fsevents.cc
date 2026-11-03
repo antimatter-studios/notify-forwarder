@@ -10,8 +10,18 @@ public:
     CFRunLoopRef run_loop;
 
 public:
+    CFRunLoopTimerRef idle_timer;
+
+public:
     WatchCallback callback;
 };
+
+static const CFTimeInterval idle_interval = 0.1;
+
+static void idle_timer_callback(__unused CFRunLoopTimerRef timer, void* info)
+{
+    static_cast<FSEventsWatchPluginImpl*>(info)->callback({});
+}
 
 static void fsevents_callback(__unused ConstFSEventStreamRef stream,
     void* client_callback_info,
@@ -69,6 +79,11 @@ FSEventsWatchPlugin::FSEventsWatchPlugin(
 
 FSEventsWatchPlugin::~FSEventsWatchPlugin()
 {
+    if (m_impl->idle_timer) {
+        CFRunLoopTimerInvalidate(m_impl->idle_timer);
+        CFRelease(m_impl->idle_timer);
+    }
+
     FSEventStreamStop(m_impl->stream);
 
     FSEventStreamUnscheduleFromRunLoop(m_impl->stream, m_impl->run_loop, kCFRunLoopCommonModes);
@@ -87,6 +102,18 @@ void FSEventsWatchPlugin::start()
     if (!started) {
         throw std::runtime_error("Could not start FSEventStream");
     }
+
+    CFRunLoopTimerContext timer_context = { 0, m_impl.get(), nullptr, nullptr, nullptr };
+
+    m_impl->idle_timer = CFRunLoopTimerCreate(kCFAllocatorDefault,
+        CFAbsoluteTimeGetCurrent() + idle_interval,
+        idle_interval,
+        0,
+        0,
+        idle_timer_callback,
+        &timer_context);
+
+    CFRunLoopAddTimer(m_impl->run_loop, m_impl->idle_timer, kCFRunLoopCommonModes);
 
     CFRunLoopRun();
 }

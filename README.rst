@@ -66,6 +66,22 @@ And on the client side:
 The "host side" here being the file system that will send events, i.e. where you run the text
 editor. The "client side" is where the auto reloading build system runs.
 
+What the sender forwards
+------------------------
+
+An event for a path is forwarded at once, and further events for it in the next second wait until
+that second ends, so a busy file is forwarded about once a second and its last change always goes
+out. Over a shared folder the receiver's event comes back to the sender, and forwarding it would feed
+the two sides for ever. The sender tells it apart by reading the path: inode, size, mtime, mode and
+owner. The receiver changes only ctime, so an event inside that second which changed none of them is
+dropped.
+
+A filesystem that stores whole seconds or milliseconds cannot show a second write of the same size
+inside one timestamp. While a timestamp like that is under two seconds old, a repeat event sends the
+path once more when two seconds have passed, and an echo then costs one extra event in the guest. On
+a filesystem with a finer timestamp, a write of the same size in the same timestamp tick, after the
+sender has read the file, is not seen.
+
 Receiver roots
 --------------
 
