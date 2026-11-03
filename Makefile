@@ -102,6 +102,15 @@ all: $(DEFAULT_TARGETS)
 
 build: $(OUT)
 
+TEST_OUT = $(OUT_DIR)/unit-tests
+
+$(TEST_OUT): tests/unit.cc src/inject_utimes.cc src/inject_utimes.h src/inject.h src/utils.h src/watch_logic.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/unit.cc src/inject_utimes.cc $(PLATFORM_LDFLAGS) -o $@
+
+test: build $(TEST_OUT)
+	$(TEST_OUT)
+
 $(OUT): $(OBJECTS)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CFLAGS) $(LDFLAGS) $(PLATFORM_LDFLAGS) -o $@ $(OBJECTS)
@@ -114,6 +123,6 @@ $(OBJ_DIR)/%.o: src/%.cc | $(OBJ_DIR)
 clean:
 	rm -rf _build
 
-.PHONY: all clean build $(SUPPORTED_TARGETS)
+.PHONY: all clean build test $(SUPPORTED_TARGETS)
 
 -include $(DEPFILES)
