@@ -128,7 +128,7 @@ $(PATH_TEST_OUT): tests/paths.cc src/receive_paths.cc src/receive_paths.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/paths.cc src/receive_paths.cc $(PLATFORM_LDFLAGS) -o $@
 
 test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT)
-	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT); do $$suite || status=1; done; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; exit $$status
+	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT); do $$suite || status=1; done; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; exit $$status
 
 TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
 

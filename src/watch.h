@@ -16,8 +16,6 @@ public:
     virtual ~IWatchPlugin() {}
 
 public:
-    virtual void start() = 0;
-
-public:
-    virtual void stop() = 0;
+    // Runs until stop_fd is readable.
+    virtual void start(int stop_fd) = 0;
 };

@@ -16,20 +16,6 @@
 #include "notify.h"
 #include "notify_udp.h"
 
-#include "platform.h"
-
-static IWatchPlugin* gCurrentWatchInstance = nullptr;
-
-static void handle_sigint(__unused int signal)
-{
-    if (gCurrentWatchInstance) {
-        gCurrentWatchInstance->stop();
-    }
-    else {
-        exit(EX_OK);
-    }
-}
-
 static void print_usage(char* argv0)
 {
     fprintf(stderr, "Usage: %s watch [-c host[:port]] (<from> <to>)...\n", argv0);
@@ -100,11 +86,10 @@ int main_watch(char* argv0, int argc, char** argv)
               notify_plugin.notify(out_paths);
           };
 
+    StopSignals stop_signals;
     WATCH_PLUGIN_TYPE plugin(watch_paths, callback);
-    SignalOverride(SIGINT, handle_sigint);
-    VariableOverrideGuard<IWatchPlugin*> var_guard(gCurrentWatchInstance, &plugin);
 
-    plugin.start();
+    plugin.start(stop_signals.fd());
 
     return EX_OK;
 }

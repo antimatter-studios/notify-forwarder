@@ -17,10 +17,7 @@ public:
     ~FSEventsWatchPlugin();
 
 public:
-    virtual void start();
-
-public:
-    virtual void stop();
+    virtual void start(int stop_fd);
 
 private:
     std::unique_ptr<FSEventsWatchPluginImpl> m_impl;

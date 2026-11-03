@@ -250,7 +250,7 @@ static void test_missing_root_is_an_error()
     InotifyWatchPlugin plugin({ "/notify-forwarder-nonexistent" }, [](std::vector<std::string>) {});
     bool threw = false;
     try {
-        plugin.start();
+        plugin.start(-1);
     }
     catch (const std::runtime_error&) {
         threw = true;

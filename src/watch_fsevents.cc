@@ -42,6 +42,12 @@ static void fsevents_callback(__unused ConstFSEventStreamRef stream,
     impl->callback(paths);
 }
 
+static void stop_callback(
+    __unused CFFileDescriptorRef descriptor, __unused CFOptionFlags flags, __unused void* info)
+{
+    CFRunLoopStop(CFRunLoopGetCurrent());
+}
+
 FSEventsWatchPlugin::FSEventsWatchPlugin(
     const std::vector<std::string>& paths, const WatchCallback& callback)
     : m_impl(new FSEventsWatchPluginImpl())
@@ -93,7 +99,7 @@ FSEventsWatchPlugin::~FSEventsWatchPlugin()
     FSEventStreamRelease(m_impl->stream);
 }
 
-void FSEventsWatchPlugin::start()
+void FSEventsWatchPlugin::start(int stop_fd)
 {
     FSEventStreamScheduleWithRunLoop(m_impl->stream, m_impl->run_loop, kCFRunLoopCommonModes);
 
@@ -115,7 +121,28 @@ void FSEventsWatchPlugin::start()
 
     CFRunLoopAddTimer(m_impl->run_loop, m_impl->idle_timer, kCFRunLoopCommonModes);
 
-    CFRunLoopRun();
-}
+    // Stopping the run loop is not safe from a signal handler. Here it runs on the run loop itself.
+    CFFileDescriptorRef stop_descriptor
+        = CFFileDescriptorCreate(kCFAllocatorDefault, stop_fd, false, stop_callback, nullptr);
 
-void FSEventsWatchPlugin::stop() { CFRunLoopStop(m_impl->run_loop); }
+    if (!stop_descriptor) {
+        throw std::runtime_error("Could not watch the stop pipe");
+    }
+
+    CFFileDescriptorEnableCallBacks(stop_descriptor, kCFFileDescriptorReadCallBack);
+
+    CFRunLoopSourceRef stop_source
+        = CFFileDescriptorCreateRunLoopSource(kCFAllocatorDefault, stop_descriptor, 0);
+
+    CFRunLoopAddSource(m_impl->run_loop, stop_source, kCFRunLoopCommonModes);
+
+    CFRunLoopRun();
+
+    CFRunLoopRemoveSource(m_impl->run_loop, stop_source, kCFRunLoopCommonModes);
+
+    CFRelease(stop_source);
+
+    CFFileDescriptorInvalidate(stop_descriptor);
+
+    CFRelease(stop_descriptor);
+}
