@@ -17,6 +17,26 @@ jobs:
       - name: Build and run tests
         run: make CXX=c++ test
 
+  linux-arm64:
+    name: Linux arm64 native build
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+      - name: A plain make build targets the host's architecture
+        run: |
+          make build
+          binary="$(find _build -type f -name notify-forwarder)"
+          file "$binary"
+          if ! file "$binary" | grep -q "ARM aarch64"; then
+            echo "make build on $(uname -m) did not produce an aarch64 binary" >&2
+            exit 1
+          fi
+          test "$binary" = _build/Linux_arm64/notify-forwarder
+      - name: A plain make test runs natively
+        run: make test
+
   inotify:
     name: Linux kernel events
     runs-on: ubuntu-latest
