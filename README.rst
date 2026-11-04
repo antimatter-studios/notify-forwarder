@@ -48,6 +48,12 @@ during automated builds.
 whose ``uname -m`` says ``aarch64`` is the ``arm64`` target, so its binary is
 ``_build/Linux_arm64/notify-forwarder``.
 
+Any other architecture that is not one of the targets above stops the build with
+an error naming it, whether it came from ``uname -m`` or from ``TARGET_ARCH``.
+``TARGET_ARCH`` takes the names in those targets only, so ``aarch64`` is refused
+there: use ``TARGET_ARCH=arm64``. The named targets and ``make clean`` still work
+on a host whose architecture is not a target.
+
 
 Running
 =======
