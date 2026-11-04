@@ -89,6 +89,16 @@ else
 	$(error Unsupported TARGET_OS '$(TARGET_OS)')
 endif
 
+# The goals this run makes: all stands for DEFAULT_TARGETS, and no goal means all. clean builds nothing
+# and a named target sets its own TARGET_OS and TARGET_ARCH, so neither depends on the values here.
+# Anything else builds for them, and the mappings above would call an unknown architecture x86_64.
+GOALS_TO_MAKE := $(patsubst all,$(DEFAULT_TARGETS),$(or $(MAKECMDGOALS),all))
+ifneq ($(filter-out clean $(SUPPORTED_TARGETS),$(GOALS_TO_MAKE)),)
+ifneq ($(filter-out $(SUPPORTED_TARGETS),$(subst Darwin,darwin,$(subst Linux,linux,$(TARGET_OS)))_$(TARGET_ARCH)),)
+$(error Unsupported TARGET_ARCH '$(TARGET_ARCH)' for TARGET_OS '$(TARGET_OS)'. Supported targets: $(SUPPORTED_TARGETS))
+endif
+endif
+
 CXXFLAGS = -MD -g -O0 -std=c++17 $(CXXWARNINGS) -DWATCH_PLUGIN_TYPE=$(WATCH_PLUGIN_TYPE) $(PLATFORM_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 ifeq ($(origin CXX), default)
@@ -143,7 +153,7 @@ $(NOTIFY_TEST_OUT): tests/notify_send.cc src/notify_udp.cc src/notify_udp.h src/
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Isrc tests/notify_send.cc $(PLATFORM_LDFLAGS) -o $@
 
 test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT)
-	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; python3 tests/failures.py $(OUT) || status=1; exit $$status
+	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; python3 tests/failures.py $(OUT) || status=1; python3 tests/target_arch.py || status=1; exit $$status
 	python3 tests/bind_probe.py $(OUT)
 
 TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
