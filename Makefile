@@ -66,11 +66,12 @@ CXX_TOOLCHAIN := c++
 ZIG_ARCH := $(if $(filter arm64,$(TARGET_ARCH)),aarch64,$(if $(filter armv7l,$(TARGET_ARCH)),arm,x86_64))
 
 ifeq ($(TARGET_OS),Darwin)
+	MACOSX_DEPLOYMENT_TARGET := 15.0
 	SRCS += src/watch_fsevents.cc
 	WATCH_PLUGIN_TYPE := FSEventsWatchPlugin
 	CXXWARNINGS := -Weverything -Wno-c++98-compat -Wno-weak-vtables -Wno-padded
-	PLATFORM_CXXFLAGS += -stdlib=libc++
-	PLATFORM_LDFLAGS += -framework CoreServices
+	PLATFORM_CXXFLAGS += -stdlib=libc++ -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+	PLATFORM_LDFLAGS += -framework CoreServices -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
 	SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path 2>/dev/null)
 	ifneq ($(SDKROOT),)
 		PLATFORM_CXXFLAGS += -isysroot $(SDKROOT)
@@ -81,9 +82,10 @@ ifeq ($(TARGET_OS),Darwin)
 	PLATFORM_LDFLAGS += $(ARCHFLAG)
 	CXX_TOOLCHAIN := xcrun --sdk macosx clang++
 else ifeq ($(TARGET_OS),Linux)
+	GLIBC_VERSION := 2.27
 	SRCS += src/watch_inotify.cc
 	WATCH_PLUGIN_TYPE := InotifyWatchPlugin
-	ZIG_TARGET := $(ZIG_ARCH)-linux-$(if $(filter arm,$(ZIG_ARCH)),gnueabihf,gnu)
+	ZIG_TARGET := $(ZIG_ARCH)-linux-$(if $(filter arm,$(ZIG_ARCH)),gnueabihf,gnu).$(GLIBC_VERSION)
 	CXX_TOOLCHAIN := zig c++ -target $(ZIG_TARGET)
 endif
 
@@ -170,6 +172,8 @@ $(NOTIFY_TEST_OUT): tests/notify_send.cc src/notify_udp.cc src/notify_udp.h src/
 test: build $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT)
 	status=0; for suite in $(TEST_OUT) $(RECEIVER_TEST_OUT) $(RACE_TEST_OUT) $(PATH_TEST_OUT) $(NOTIFY_TEST_OUT) $(FLAGS_TEST_OUT); do $$suite || status=1; done; python3 tests/oversized.py $(OUT) || status=1; python3 tests/receiver_cli.py $(OUT) || status=1; python3 tests/forwarding.py $(OUT) || status=1; python3 tests/signals.py $(OUT) || status=1; python3 tests/failures.py $(OUT) || status=1; python3 tests/target_arch.py || status=1; exit $$status
 	python3 tests/bind_probe.py $(OUT)
+	python3 tests/release_floor.py
+	python3 tests/build_floors.py
 
 TREE_TEST_OUT = $(OUT_DIR)/inotify-tree-tests
 
