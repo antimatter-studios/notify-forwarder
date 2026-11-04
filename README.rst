@@ -205,19 +205,47 @@ of 168 files lost the host's value.
 Supported architectures
 =======================
 
-+-----------------+------+-------+
-| Platform        | Host | Guest |
-+=================+======+=======+
-| macOS arm64     |  ✓   |  —    |
-+-----------------+------+-------+
-| macOS x86_64    |  ✓   |  —    |
-+-----------------+------+-------+
-| Linux arm64     |  ✓   |  ✓    |
-+-----------------+------+-------+
-| Linux armv7l    |  —   |  ✓    |
-+-----------------+------+-------+
-| Linux x86_64    |  ✓   |  ✓    |
-+-----------------+------+-------+
++-----------------+------+-------+------------------------+
+| Platform        | Host | Guest | Release minimum        |
++=================+======+=======+========================+
+| macOS arm64     |  ✓   |  —    | macOS 15.0             |
++-----------------+------+-------+------------------------+
+| macOS x86_64    |  ✓   |  —    | macOS 15.0             |
++-----------------+------+-------+------------------------+
+| Linux arm64     |  ✓   |  ✓    | glibc 2.27             |
++-----------------+------+-------+------------------------+
+| Linux armv7l    |  —   |  ✓    | glibc 2.27, hard-float |
++-----------------+------+-------+------------------------+
+| Linux x86_64    |  ✓   |  ✓    | glibc 2.27             |
++-----------------+------+-------+------------------------+
+
+The Makefile chooses these floors, independently of the build runner. Both
+Darwin compile and link commands use ``-mmacosx-version-min=15.0``. The Linux
+targets are ``aarch64-linux-gnu.2.27``, ``arm-linux-gnueabihf.2.27`` and
+``x86_64-linux-gnu.2.27``; these are dynamically linked glibc binaries, not musl
+binaries. A custom ``CXX`` may use its own libc, so its output is not guaranteed
+to meet the release floor.
+
+macOS 15.0 preserves the v1.1.0 minimum and supports consumers running macOS
+15. glibc 2.27 preserves v1.1.0's arm64
+and x86_64 minimum and lowers armv7l from 2.34. Its former ``GLIBC_2.34`` imports
+included ``__libc_start_main`` and pthread functions; targeting 2.27 selects
+their older symbol versions, so those imports do not require a 2.34 floor.
+
+The v1.2.0 ``statx@GLIBC_2.28`` import comes from Zig 0.17.1's linked runtime,
+not a direct application call: the application uses ``lstat`` and ``fstat``.
+Zig's ``Io.Threaded`` selects the libc ``statx`` wrapper only when the target
+glibc is at least 2.28, and otherwise uses the Linux syscall. Cross-building
+all three targets at 2.27 removes that versioned import without changing the
+application's file checks. This chooses a libc ABI floor, not a promise of
+support for every older Linux kernel.
+
+``.github/workflows/build.yml`` builds the same five release targets on pull
+requests and tags. Before packaging, ``scripts/check_release_floor.py`` uses
+``vtool -show-build`` to require exactly macOS 15.0 and ``readelf --version-info
+--wide`` to reject any glibc requirement newer than 2.27. Local cross-builds
+and symbol inspection establish these ABI requirements, not runtime validation
+on macOS 15 or a glibc 2.27 system.
 
 
 Changelog

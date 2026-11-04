@@ -1,6 +1,7 @@
 name: Build notify-forwarder
 
 on:
+  pull_request:
   push:
     tags:
       - "*"
@@ -11,6 +12,7 @@ jobs:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: darwin_arm64
@@ -41,6 +43,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Test release floor checks
+        run: python3 tests/release_floor.py
 
       - name: Install Zig
         if: ${{ matrix.install_zig }}
@@ -82,6 +87,9 @@ jobs:
             echo "Unexpected architecture for ${{ matrix.target }}" >&2
             exit 1
           fi
+
+      - name: Verify release compatibility floor
+        run: python3 scripts/check_release_floor.py ${{ matrix.target }} _build/${{ matrix.out_dir }}/notify-forwarder
 
       - name: Package artifact
         run: |
