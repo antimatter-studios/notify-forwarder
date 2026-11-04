@@ -85,15 +85,19 @@ else ifeq ($(TARGET_OS),Linux)
 	WATCH_PLUGIN_TYPE := InotifyWatchPlugin
 	ZIG_TARGET := $(ZIG_ARCH)-linux-$(if $(filter arm,$(ZIG_ARCH)),gnueabihf,gnu)
 	CXX_TOOLCHAIN := zig c++ -target $(ZIG_TARGET)
-else
-	$(error Unsupported TARGET_OS '$(TARGET_OS)')
 endif
 
 # The goals this run makes: all stands for DEFAULT_TARGETS, and no goal means all. clean builds nothing
 # and a named target sets its own TARGET_OS and TARGET_ARCH, so neither depends on the values here.
 # Anything else builds for them, and the mappings above would call an unknown architecture x86_64.
 GOALS_TO_MAKE := $(patsubst all,$(DEFAULT_TARGETS),$(or $(MAKECMDGOALS),all))
-ifneq ($(filter-out clean $(SUPPORTED_TARGETS),$(GOALS_TO_MAKE)),)
+GOALS_THAT_BUILD_HERE := $(filter-out clean $(SUPPORTED_TARGETS),$(GOALS_TO_MAKE))
+ifneq ($(GOALS_THAT_BUILD_HERE),)
+ifneq ($(TARGET_OS),Darwin)
+ifneq ($(TARGET_OS),Linux)
+$(error Unsupported TARGET_OS '$(TARGET_OS)'. Supported targets: $(SUPPORTED_TARGETS))
+endif
+endif
 ifneq ($(filter-out $(SUPPORTED_TARGETS),$(subst Darwin,darwin,$(subst Linux,linux,$(TARGET_OS)))_$(TARGET_ARCH)),)
 $(error Unsupported TARGET_ARCH '$(TARGET_ARCH)' for TARGET_OS '$(TARGET_OS)'. Supported targets: $(SUPPORTED_TARGETS))
 endif
@@ -105,6 +109,17 @@ ifeq ($(origin CXX), default)
 CXX := $(CXX_TOOLCHAIN)
 else
 CXX ?= $(CXX_TOOLCHAIN)
+# On Linux the architecture reaches the compiler only through the zig command that this override replaces,
+# so the compiler says what it builds for, with the flags it will compile with. -MD would write a file.
+ifeq ($(TARGET_OS),Linux)
+ifneq ($(GOALS_THAT_BUILD_HERE),)
+CXX_MACROS := $(shell $(CXX) $(CPPFLAGS) $(filter-out -MD,$(CXXFLAGS)) -dM -E -x c++ /dev/null 2>/dev/null)
+CXX_ARCH := $(patsubst __x86_64__,x86_64,$(patsubst __aarch64__,arm64,$(patsubst __arm__,armv7l,$(filter __x86_64__ __aarch64__ __arm__,$(CXX_MACROS)))))
+ifneq ($(CXX_ARCH),$(TARGET_ARCH))
+$(error CXX '$(CXX)' builds for $(or $(CXX_ARCH),no supported target), not TARGET_ARCH '$(TARGET_ARCH)'. Use a CXX that builds for $(TARGET_ARCH), or leave CXX unset to build with zig)
+endif
+endif
+endif
 endif
 
 OBJECTS = $(patsubst src/%.cc,$(OBJ_DIR)/%.o,$(SRCS))

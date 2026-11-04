@@ -54,6 +54,15 @@ an error naming it, whether it came from ``uname -m`` or from ``TARGET_ARCH``.
 there: use ``TARGET_ARCH=arm64``. The named targets and ``make clean`` still work
 on a host whose architecture is not a target.
 
+An operating system other than ``Darwin`` or ``Linux`` stops the build the same
+way, whether it came from ``uname -s`` or from ``TARGET_OS``. The named targets
+and ``make clean`` still work on such a host.
+
+On Linux, setting ``CXX`` replaces the ``zig`` command that carries the target
+architecture, so ``make`` asks that compiler what it builds for and stops if the
+answer is not ``TARGET_ARCH``. ``make CXX=c++`` builds for the host, and
+``make CXX=aarch64-linux-gnu-g++ TARGET_ARCH=arm64`` cross-compiles.
+
 
 Running
 =======
